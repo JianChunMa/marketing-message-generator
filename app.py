@@ -1,34 +1,42 @@
 import streamlit as st
 import openai
 
-openai.api_key = st.secrets["openai_key"]
+# Use correct key structure: adjust based on your secrets.toml
+openai.api_key = st.secrets["openai_key"]  # Or st.secrets["openai"]["api_key"] if nested
 
 # Define neutral product features, benefits, pain points, and desires
-product_features = ["Voice control", "Touch screen interface", "Smart inventory management", "Recipe suggestions"]
-product_benefits = ["Convenience", "Reduced food waste", "Personalized cooking assistance", "Energy efficiency", "Longer food freshness"]
-target_audience = ["Busy families", "Health-conscious individuals", "Tech enthusiasts", "Cooking aficionados", "Home chefs"]
-pain_points = ["Limited kitchen space", "Difficulty meal planning", "Time constraints", "Food spoilage concerns"]
-desires = ["Simplified cooking", "Healthier eating", "Optimized organization", "Culinary inspiration"]
+product_features_list = ["Voice control", "Touch screen interface", "Smart inventory management", "Recipe suggestions"]
+product_benefits_list = ["Convenience", "Reduced food waste", "Personalized cooking assistance", "Energy efficiency", "Longer food freshness"]
+target_audience_list = ["Busy families", "Health-conscious individuals", "Tech enthusiasts", "Cooking aficionados", "Home chefs"]
+pain_points_list = ["Limited kitchen space", "Difficulty meal planning", "Time constraints", "Food spoilage concerns"]
+desires_list = ["Simplified cooking", "Healthier eating", "Optimized organization", "Culinary inspiration"]
 channels = ["Instagram", "Facebook", "Twitter", "Email"]
 tones = ["Casual", "Informative", "Enthusiastic", "Humorous", "Inspirational"]
 
 # Function to generate marketing copy
-def generate_copy(product_name, product_features, product_benefits, target_audience, pain_points, desires, channel, tone):
+def generate_copy(product_name, features, benefits, audience, pains, wants, channel, tone):
+    # Ensure all are strings
+    audience_str = audience if isinstance(audience, str) else ", ".join(audience)
+    features_str = ", ".join(features) if features else "N/A"
+    benefits_str = ", ".join(benefits) if benefits else "N/A"
+    pains_str = ", ".join(pains) if pains else "N/A"
+    wants_str = ", ".join(wants) if wants else "N/A"
+
     prompt = f"""
-    You're a marketing copywriter. Write a {channel} post caption and image description to promote the {product_name}, a new smart refrigerator.
+You're a marketing copywriter. Write a {channel} post caption and image description to promote the {product_name}, a new smart refrigerator.
 
-    **Target audience:** {target_audience}
+**Target audience:** {audience_str}
 
-    **Highlight:**
-    * Key features: {', '.join(product_features)}
-    * Benefits: {', '.join(product_benefits)}
-    * Address these pain points: {', '.join(pain_points)}
-    * Appeal to these desires: {', '.join(desires)}
+**Highlight:**
+* Key features: {features_str}
+* Benefits: {benefits_str}
+* Address these pain points: {pains_str}
+* Appeal to these desires: {wants_str}
 
-    **Tone:** {tone}
+**Tone:** {tone}
 
-    **Image description:** A photo of the {product_name} in a modern kitchen setting, with the door open to showcase the organized interior and a user interacting with it.
-    """
+**Image description:** A photo of the {product_name} in a modern kitchen setting, with the door open to showcase the organized interior and a user interacting with it.
+"""
 
     response = openai.ChatCompletion.create(
         model="gpt-4o-mini",
@@ -37,25 +45,43 @@ def generate_copy(product_name, product_features, product_benefits, target_audie
             {"role": "user", "content": prompt}
         ]
     )
+    
     copy = response['choices'][0]['message']['content']
-    caption, image_description = copy.split("\n\n")
+
+    # Defensive split: fallback if \n\n not present
+    parts = copy.strip().split("\n\n", 1)
+    caption = parts[0].strip()
+    image_description = parts[1].strip() if len(parts) > 1 else "(No image description generated.)"
+    
     return caption, image_description
 
 # Streamlit UI
 st.title("Smart Fridge Pro Marketing Copy Generator")
 
 product_name = st.text_input("Product Name:", value="Smart Fridge Pro")
-selected_features = st.multiselect("Product Features:", product_features)
-selected_benefits = st.multiselect("Product Benefits:", product_benefits)
-selected_audience = st.selectbox("Target Audience:", target_audience)
-selected_pain_points = st.multiselect("Pain Points:", pain_points)
-selected_desires = st.multiselect("Desires:", desires)
+selected_features = st.multiselect("Product Features:", product_features_list, default=product_features_list[:2])
+selected_benefits = st.multiselect("Product Benefits:", product_benefits_list, default=product_benefits_list[:2])
+selected_audience = st.selectbox("Target Audience:", target_audience_list)
+selected_pain_points = st.multiselect("Pain Points:", pain_points_list, default=pain_points_list[:2])
+selected_desires = st.multiselect("Desires:", desires_list, default=desires_list[:2])
 selected_channel = st.selectbox("Channel:", channels)
 selected_tone = st.selectbox("Tone:", tones)
 
 if st.button("Generate Marketing Copy"):
-    caption, image_description = generate_copy(product_name, selected_features, selected_benefits, selected_audience, selected_pain_points, selected_desires, selected_channel, selected_tone)
-    st.subheader("Caption:")
-    st.write(caption)
-    st.subheader("Image Description:")
-    st.write(image_description)
+    try:
+        caption, image_description = generate_copy(
+            product_name,
+            selected_features,
+            selected_benefits,
+            selected_audience,
+            selected_pain_points,
+            selected_desires,
+            selected_channel,
+            selected_tone
+        )
+        st.subheader("Caption:")
+        st.write(caption)
+        st.subheader("Image Description:")
+        st.write(image_description)
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
